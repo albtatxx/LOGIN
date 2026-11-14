@@ -1,5 +1,5 @@
 // ============================================================
-// إعدادات Firebase & EmailJS (تم ربط بيانات مشروعك بنجاح)
+// إعدادات Firebase & EmailJS (تم ربط جميع المفاتيح بنجاح 🚀)
 // ============================================================
 
 window.firebaseConfig = {
@@ -13,11 +13,10 @@ window.firebaseConfig = {
 };
 
 // إعدادات EmailJS لإرسال كود الـ 6 أرقام للبريد الحقيقي
-// (إذا لم تضع مفاتيحك بعد، سيعمل النظام تلقائياً ويعطيك الكود في إشعار منبثق لتجربته)
 window.emailJsConfig = {
-    serviceId: "YOUR_SERVICE_ID",
-    templateId: "YOUR_TEMPLATE_ID",
-    publicKey: "YOUR_PUBLIC_KEY"
+    serviceId: "service_pvtsn6j",       // تم الإضافة بنجاح ✅
+    templateId: "template_40ngqdf",     // تم الإضافة بنجاح ✅
+    publicKey: "9NdtSdALiJEeJf0mF"      // تم الإضافة بنجاح ✅
 };
 
 // تهيئة تطبيق فايربيس

@@ -13,10 +13,10 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- EmailJS SDK (لإرسال كود الـ 6 أرقام للبريد) -->
+    <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
-    <!-- مكتبات Firebase Compat (تدعم العمل مباشرة بالنقر المزدوج file:// أو السيرفر المحلي) -->
+    <!-- مكتبات Firebase Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -159,34 +159,50 @@
                 </button>
             </form>
 
-            <!-- 3. شاشة تأكيد كود الـ 6 أرقام (OTP Verification) -->
+            <!-- 3. شاشة تأكيد البريد الإلكتروني (تأكيد بالكود أو الرابط) -->
             <div id="otpSection" class="otp-view hidden">
                 <div class="otp-icon-wrap">
                     <i class="fa-solid fa-envelope-circle-check"></i>
                 </div>
                 <div class="form-title">
-                    <h2>تأكيد البريد الإلكتروني</h2>
-                    <p>أدخل رمز التحقق المكون من 6 أرقام المُرسل إلى:</p>
+                    <h2 id="verificationTitle">تأكيد البريد الإلكتروني</h2>
+                    <p id="verificationSubtitle">تم إرسال كود التفعيل المكون من 6 أرقام إلى بريدك:</p>
                     <div class="otp-email-badge" id="otpTargetEmail">user@example.com</div>
                 </div>
 
-                <div class="otp-inputs-wrapper" dir="ltr">
-                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*" autofocus>
-                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
-                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
-                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
-                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
-                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                <!-- حاوية كود الـ 6 أرقام -->
+                <div id="otpInputsContainer">
+                    <div class="otp-inputs-wrapper" dir="ltr">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*" autofocus>
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="verifyOtpBtn">
+                        <span class="btn-text">تأكيد وتفعيل الحساب</span>
+                        <span class="spinner hidden"></span>
+                    </button>
                 </div>
 
-                <button type="button" class="btn btn-primary" id="verifyOtpBtn">
-                    <span class="btn-text">تأكيد وتفعيل الحساب</span>
-                    <span class="spinner hidden"></span>
-                </button>
+                <!-- حاوية رابط التفعيل التلقائي المباشر من فايربيس (تظهر عندما يكون التفعيل برابط رسمي من جوجل) -->
+                <div id="firebaseLinkContainer" class="hidden" style="margin: 20px 0;">
+                    <p style="font-size: 14px; color: #475569; line-height: 1.7; margin-bottom: 16px;">
+                        تم إرسال رسالة التفعيل الرسمية إلى بريدك الإلكتروني بنجاح.<br>
+                        يرجى فتح بريدك والضغط على <strong>رابط التفعيل</strong> لتأكيد حسابك.
+                    </p>
+                    <button type="button" class="btn btn-primary" id="checkVerifiedBtn">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span class="btn-text">لقد ضغطت على الرابط، دخول إلى الحساب</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </div>
 
                 <div class="otp-resend-row">
-                    <span id="resendCountdownText">إعادة إرسال الرمز خلال <strong id="countdownTimer">60</strong> ثانية</span>
-                    <button type="button" id="resendOtpBtn" class="link-btn hidden">إعادة إرسال الرمز الآن</button>
+                    <span id="resendCountdownText">إعادة إرسال الرسالة خلال <strong id="countdownTimer">60</strong> ثانية</span>
+                    <button type="button" id="resendOtpBtn" class="link-btn hidden">إعادة إرسال الرسالة الآن</button>
                 </div>
 
                 <button type="button" class="btn-secondary-link" id="cancelOtpBtn">
@@ -227,7 +243,7 @@
         </div>
     </main>
 
-    <!-- ملف الإعدادات وملف المنطق البرمجي (يعملان مباشرة وبدون أي عوائق CORS) -->
+    <!-- ملف الإعدادات وملف المنطق البرمجي -->
     <script src="firebase-config.js"></script>
     <script src="app.js"></script>
 </body>

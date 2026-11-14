@@ -1,5 +1,5 @@
 // ============================================================
-// كود الجافاسكربت الرئيسي للتحكم بالواجهة و Firebase و كود الـ 6 أرقام
+// كود الجافاسكربت الرئيسي للتحكم بالواجهة و Firebase و كود التفعيل
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,9 +58,14 @@ function initApp() {
     const registerSubmitBtn = document.getElementById('registerSubmitBtn');
     const registerGoogleBtn = document.getElementById('registerGoogleBtn');
 
-    // حقول كود الـ 6 أرقام (OTP)
-    const otpDigits = document.querySelectorAll('.otp-digit');
+    // عناصر شاشة التفعيل
+    const verificationTitle = document.getElementById('verificationTitle');
+    const verificationSubtitle = document.getElementById('verificationSubtitle');
     const otpTargetEmail = document.getElementById('otpTargetEmail');
+    const otpInputsContainer = document.getElementById('otpInputsContainer');
+    const firebaseLinkContainer = document.getElementById('firebaseLinkContainer');
+    const checkVerifiedBtn = document.getElementById('checkVerifiedBtn');
+    const otpDigits = document.querySelectorAll('.otp-digit');
     const verifyOtpBtn = document.getElementById('verifyOtpBtn');
     const resendOtpBtn = document.getElementById('resendOtpBtn');
     const countdownTimer = document.getElementById('countdownTimer');
@@ -148,38 +153,17 @@ function initApp() {
     });
 
     // ============================================================
-    // 3. كود الـ 6 أرقام (OTP Logic)
+    // 3. التحقق وإرسال رسائل التفعيل
     // ============================================================
-    function generate6DigitCode() {
-        return Math.floor(100000 + Math.random() * 900000).toString();
+    function isEmailJsReady() {
+        const config = window.emailJsConfig;
+        return (config &&
+            config.serviceId && config.serviceId !== 'YOUR_SERVICE_ID' &&
+            config.publicKey && config.publicKey !== 'YOUR_PUBLIC_KEY');
     }
 
-    async function sendOtpEmail(email, name, otpCode) {
-        const config = window.emailJsConfig;
-        const isEmailJsConfigured = config &&
-            config.serviceId && config.serviceId !== 'YOUR_SERVICE_ID' &&
-            config.publicKey && config.publicKey !== 'YOUR_PUBLIC_KEY';
-
-        if (isEmailJsConfigured && window.emailjs) {
-            try {
-                await emailjs.send(
-                    config.serviceId,
-                    config.templateId,
-                    { to_email: email, user_name: name, otp_code: otpCode },
-                    config.publicKey
-                );
-                showToast(`تم إرسال رمز التفعيل المكون من 6 أرقام إلى ${email}`, 'success');
-                return true;
-            } catch (err) {
-                console.error('EmailJS Send Error:', err);
-                showToast('تعذر إرسال الإيميل عبر EmailJS، تم تفعيل العرض التجريبي.', 'error');
-            }
-        }
-
-        // الوضع التجريبي: يطبع الكود في الـ Console ويظهره كإشعار
-        console.log(`%c[كود التحقق التجريبي] 🔑 الكود هو: ${otpCode}`, 'background: #4f46e5; color: #fff; font-size: 16px; padding: 6px 14px; border-radius: 6px;');
-        showToast(`🔑 [كود تجريبي]: رمز التفعيل هو ${otpCode} (للاختبار الفوري)`, 'info', 10000);
-        return true;
+    function generate6DigitCode() {
+        return Math.floor(100000 + Math.random() * 900000).toString();
     }
 
     function startOtpCountdown() {
@@ -202,7 +186,7 @@ function initApp() {
         }, 1000);
     }
 
-    // التنقل بين خانات الـ 6 أرقام
+    // التنقل التلقائي بين خانات كود الـ 6 أرقام
     otpDigits.forEach((input, index) => {
         input.addEventListener('input', (e) => {
             const val = e.target.value.replace(/[^0-9]/g, '');
@@ -232,7 +216,8 @@ function initApp() {
         });
     });
 
-    function showOtpSection(email) {
+    // إظهار شاشة التفعيل
+    function showVerificationSection(email, mode = 'otp') {
         if (tabHeader) tabHeader.classList.add('hidden');
         if (loginForm) loginForm.classList.remove('active');
         if (registerForm) registerForm.classList.remove('active');
@@ -240,10 +225,20 @@ function initApp() {
         if (otpSection) otpSection.classList.remove('hidden');
 
         if (otpTargetEmail) otpTargetEmail.textContent = email;
-        otpDigits.forEach(input => input.value = '');
-        setTimeout(() => {
-            if (otpDigits[0]) otpDigits[0].focus();
-        }, 200);
+
+        if (mode === 'otp') {
+            // وضع كود الـ 6 أرقام (EmailJS)
+            verificationSubtitle.textContent = 'أدخل رمز التحقق المكون من 6 أرقام المُرسل إلى بريدك:';
+            otpInputsContainer.classList.remove('hidden');
+            firebaseLinkContainer.classList.add('hidden');
+            otpDigits.forEach(input => input.value = '');
+            setTimeout(() => { if (otpDigits[0]) otpDigits[0].focus(); }, 200);
+        } else {
+            // وضع رابط التفعيل المباشر من جوجل/فايربيس
+            verificationSubtitle.textContent = 'تم إرسال رسالة تفعيل رسمية إلى بريدك الإلكتروني:';
+            otpInputsContainer.classList.add('hidden');
+            firebaseLinkContainer.classList.remove('hidden');
+        }
 
         startOtpCountdown();
     }
@@ -256,7 +251,7 @@ function initApp() {
     }
 
     // ============================================================
-    // 4. إرسال نموذج إنشاء حساب جديد
+    // 4. إنشاء حساب جديد وإرسال الإيميل الحقيقي فوراً
     // ============================================================
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
@@ -280,28 +275,92 @@ function initApp() {
             toggleLoading(registerSubmitBtn, true);
 
             try {
-                const otpCode = generate6DigitCode();
-                const pendingData = {
-                    name,
-                    email,
-                    password,
-                    otpCode,
-                    createdAt: Date.now()
-                };
-                sessionStorage.setItem('pending_registration', JSON.stringify(pendingData));
+                // الخيار الأول: إذا كان المستخدم قام بربط EmailJS، نرسل كود الـ 6 أرقام
+                if (isEmailJsReady()) {
+                    const otpCode = generate6DigitCode();
+                    const pendingData = { name, email, password, otpCode, mode: 'otp' };
+                    sessionStorage.setItem('pending_registration', JSON.stringify(pendingData));
 
-                await sendOtpEmail(email, name, otpCode);
-                showOtpSection(email);
+                    await emailjs.send(
+                        window.emailJsConfig.serviceId,
+                        window.emailJsConfig.templateId,
+                        { to_email: email, user_name: name, otp_code: otpCode },
+                        window.emailJsConfig.publicKey
+                    );
+
+                    showToast(`تم إرسال كود الـ 6 أرقام بنجاح إلى ${email}`, 'success');
+                    showVerificationSection(email, 'otp');
+                } 
+                // الخيار الثاني: نظام فايربيس الرسمي التلقائي (يرسل إيميل تفعيل حقيقي من جوجل فوراً دون الحاجة لـ EmailJS)
+                else {
+                    if (!window.isFirebaseReady || !window.auth) {
+                        showToast('خطأ: لم يتم الاتصال بفايربيس بشكل صحيح', 'error');
+                        return;
+                    }
+
+                    // إنشاء الحساب في فايربيس
+                    const userCredential = await window.auth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+
+                    // تحديث اسم المستخدم
+                    await user.updateProfile({ displayName: name });
+
+                    // إرسال إيميل التفعيل الحقيقي الرسمي من سيرفرات جوجل/فايربيس
+                    await user.sendEmailVerification();
+
+                    sessionStorage.setItem('pending_registration', JSON.stringify({ name, email, mode: 'link' }));
+
+                    showToast(`تم إرسال رسالة التفعيل بنجاح إلى ${email}! تفقد صندوق الوارد أو الـ Spam`, 'success', 7000);
+                    showVerificationSection(email, 'link');
+                }
             } catch (err) {
-                console.error(err);
-                showToast('حدث خطأ أثناء المحاولة، يرجى إعادة المحاولة', 'error');
+                console.error('Registration/Send Error:', err);
+                handleAuthError(err);
             } finally {
                 toggleLoading(registerSubmitBtn, false);
             }
         });
     }
 
-    // إعادة إرسال الكود
+    // زر التحقق من تفعيل الرابط (في وضع فايربيس المباشر)
+    if (checkVerifiedBtn) {
+        checkVerifiedBtn.addEventListener('click', async () => {
+            if (!window.auth || !window.auth.currentUser) {
+                showToast('يرجى تسجيل الدخول أولاً', 'info');
+                window.switchTab('login');
+                return;
+            }
+
+            toggleLoading(checkVerifiedBtn, true);
+
+            try {
+                // تحديث حالة المستخدم من السيرفر لمعرفة هل ضغط على الرابط في الإيميل
+                await window.auth.currentUser.reload();
+                const user = window.auth.currentUser;
+
+                if (user.emailVerified) {
+                    showToast('تم التحقق من بريدك بنجاح! مرحباً بك 🎉', 'success');
+                    sessionStorage.removeItem('pending_registration');
+                    renderUserDashboard({
+                        displayName: user.displayName,
+                        email: user.email,
+                        photoURL: user.photoURL,
+                        uid: user.uid,
+                        providerId: 'password'
+                    });
+                } else {
+                    showToast('لم يتم تفعيل الحساب بعد! يرجى فتح الرسالة في بريدك والضغط على رابط التفعيل ثم المحاولة مجدداً.', 'error', 6000);
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('حدث خطأ أثناء فحص حالة التفعيل، يرجى المحاولة لاحقاً', 'error');
+            } finally {
+                toggleLoading(checkVerifiedBtn, false);
+            }
+        });
+    }
+
+    // زر إعادة إرسال الرسالة
     if (resendOtpBtn) {
         resendOtpBtn.addEventListener('click', async () => {
             const raw = sessionStorage.getItem('pending_registration');
@@ -311,18 +370,38 @@ function initApp() {
                 return;
             }
             const pendingData = JSON.parse(raw);
-            const newOtp = generate6DigitCode();
-            pendingData.otpCode = newOtp;
-            sessionStorage.setItem('pending_registration', JSON.stringify(pendingData));
 
-            showToast('جاري إعادة إرسال الكود...', 'info');
-            await sendOtpEmail(pendingData.email, pendingData.name, newOtp);
-            startOtpCountdown();
+            try {
+                if (pendingData.mode === 'otp' && isEmailJsReady()) {
+                    const newOtp = generate6DigitCode();
+                    pendingData.otpCode = newOtp;
+                    sessionStorage.setItem('pending_registration', JSON.stringify(pendingData));
+
+                    showToast('جاري إرسال كود جديد إلى بريدك...', 'info');
+                    await emailjs.send(
+                        window.emailJsConfig.serviceId,
+                        window.emailJsConfig.templateId,
+                        { to_email: pendingData.email, user_name: pendingData.name, otp_code: newOtp },
+                        window.emailJsConfig.publicKey
+                    );
+                    showToast(`تم إرسال كود جديد إلى ${pendingData.email}`, 'success');
+                } else {
+                    if (window.auth && window.auth.currentUser) {
+                        showToast('جاري إعادة إرسال رسالة التفعيل...', 'info');
+                        await window.auth.currentUser.sendEmailVerification();
+                        showToast(`تم إرسال رسالة التفعيل مجدداً إلى ${pendingData.email}`, 'success');
+                    }
+                }
+                startOtpCountdown();
+            } catch (err) {
+                console.error(err);
+                showToast('تعذر إعادة الإرسال حالياً، انتظر قليلاً ثم حاول مجدداً', 'error');
+            }
         });
     }
 
     // ============================================================
-    // 5. تأكيد كود الـ 6 أرقام
+    // 5. تأكيد كود الـ 6 أرقام (عند استخدام وضع EmailJS)
     // ============================================================
     if (verifyOtpBtn) {
         verifyOtpBtn.addEventListener('click', async () => {
@@ -343,7 +422,7 @@ function initApp() {
             const pendingData = JSON.parse(raw);
 
             if (enteredOtp !== pendingData.otpCode) {
-                showToast('رمز التحقق غير صحيح! تأكد من الرمز وحاول مجدداً', 'error');
+                showToast('رمز التحقق غير صحيح! تأكد من الرمز المرسل إلى بريدك وحاول مجدداً', 'error');
                 otpDigits.forEach(input => input.classList.add('error'));
                 setTimeout(() => otpDigits.forEach(input => input.classList.remove('error')), 1500);
                 return;
@@ -351,7 +430,7 @@ function initApp() {
 
             toggleLoading(verifyOtpBtn, true);
 
-            // التحقق من تفعيل فايربيس
+            // إنشاء الحساب الفعلي في فايربيس
             if (window.isFirebaseReady && window.auth) {
                 try {
                     const userCredential = await window.auth.createUserWithEmailAndPassword(
@@ -385,16 +464,8 @@ function initApp() {
                     toggleLoading(verifyOtpBtn, false);
                 }
             } else {
-                // وضع المحاكاة التجريبي (في حال لم يضع المستخدم مفاتيح فايربيس بعد)
+                showToast('خطأ: فايربيس غير متصل', 'error');
                 toggleLoading(verifyOtpBtn, false);
-                sessionStorage.removeItem('pending_registration');
-                showToast('تم التحقق بنجاح من كود الـ 6 أرقام! 🎉 (وضع تجريبي)', 'success');
-                renderUserDashboard({
-                    displayName: pendingData.name,
-                    email: pendingData.email,
-                    uid: 'DEMO-USER-' + Math.floor(1000 + Math.random() * 9000),
-                    providerId: 'demo-email'
-                });
             }
         });
     }
@@ -413,7 +484,16 @@ function initApp() {
 
             if (window.isFirebaseReady && window.auth) {
                 try {
-                    await window.auth.signInWithEmailAndPassword(email, password);
+                    const userCredential = await window.auth.signInWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+
+                    // التحقق مما إذا كان البريد قد تم تفعيله
+                    if (!user.emailVerified && !isEmailJsReady()) {
+                        showToast('تنبيه: لم تقم بتفعيل حسابك بعد. يرجى مراجعة بريدك والضغط على رابط التفعيل أولاً.', 'error', 7000);
+                        toggleLoading(loginSubmitBtn, false);
+                        return;
+                    }
+
                     showToast('تم تسجيل الدخول بنجاح! مرحباً بعودتك 👋', 'success');
                 } catch (error) {
                     console.error('Login Error:', error);
@@ -423,7 +503,7 @@ function initApp() {
                 }
             } else {
                 toggleLoading(loginSubmitBtn, false);
-                showToast('لتسجيل الدخول الفعلي بقاعدة البيانات، يرجى وضع مفاتيح مشروعك في ملف firebase-config.js', 'info');
+                showToast('فايربيس غير متصل حالياً', 'error');
             }
         });
     }
@@ -463,7 +543,7 @@ function initApp() {
                 }
             }
         } else {
-            showToast('لتسجيل الدخول بجوجل، يرجى إضافة مفاتيح Firebase في ملف firebase-config.js وتفعيل خيار Google في Firebase Console', 'info', 6000);
+            showToast('لتسجيل الدخول بجوجل، تأكد من تفعيل Google في Firebase Console', 'info', 6000);
         }
     }
 
@@ -487,12 +567,10 @@ function initApp() {
             if (window.isFirebaseReady && window.auth) {
                 try {
                     await window.auth.sendPasswordResetEmail(email);
-                    showToast(`تم إرسال رابط إعادة تعيين كلمة المرور إلى ${email}`, 'success');
+                    showToast(`تم إرسال رابط استعادة كلمة المرور إلى ${email}`, 'success');
                 } catch (error) {
                     handleAuthError(error);
                 }
-            } else {
-                showToast(`[تجريبي] سيتم إرسال رابط استعادة كلمة المرور إلى ${email} بمجرد وضع مفاتيح فايربيس`, 'info');
             }
         });
     }
@@ -544,7 +622,7 @@ function initApp() {
     // مراقبة حالة تسجيل الدخول التلقائية عبر Firebase
     if (window.isFirebaseReady && window.auth) {
         window.auth.onAuthStateChanged(user => {
-            if (user) {
+            if (user && user.emailVerified) {
                 const isGoogle = user.providerData && user.providerData.some(p => p.providerId === 'google.com');
                 renderUserDashboard({
                     displayName: user.displayName,
@@ -592,6 +670,9 @@ function initApp() {
                 break;
             case 'auth/unauthorized-domain':
                 msg = 'النطاق غير مصرح به في Firebase Console -> Authorized Domains';
+                break;
+            case 'auth/operation-not-allowed':
+                msg = 'طريقة التسجيل هذه غير مفعلة، يرجى تفعيل Email/Password في Firebase Console';
                 break;
             default:
                 msg = error.message || msg;
